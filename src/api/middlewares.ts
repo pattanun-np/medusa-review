@@ -27,10 +27,5 @@ export default defineMiddlewares({
         validateAndTransformBody(PostAdminUpdateReviewsStatusSchema),
       ],
     },
-    {
-      matcher: "/store/reviews/upload",
-      method: "POST",
-      middlewares: [upload.array("files")],
-    },
   ],
 });
