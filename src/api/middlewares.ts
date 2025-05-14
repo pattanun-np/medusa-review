@@ -5,6 +5,9 @@ import {
 } from "@medusajs/framework/http";
 import { PostStoreReviewSchema } from "./store/reviews/route";
 import { PostAdminUpdateReviewsStatusSchema } from "./admin/reviews/status/route";
+import multer from "multer";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 export default defineMiddlewares({
   routes: [
@@ -13,6 +16,7 @@ export default defineMiddlewares({
       matcher: "/store/reviews",
       middlewares: [
         authenticate("customer", ["session", "bearer"]),
+        upload.array("files"),
         validateAndTransformBody(PostStoreReviewSchema),
       ],
     },
@@ -22,6 +26,11 @@ export default defineMiddlewares({
       middlewares: [
         validateAndTransformBody(PostAdminUpdateReviewsStatusSchema),
       ],
+    },
+    {
+      matcher: "/store/reviews/upload",
+      method: "POST",
+      middlewares: [upload.array("files")],
     },
   ],
 });

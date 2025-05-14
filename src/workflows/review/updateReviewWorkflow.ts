@@ -42,8 +42,13 @@ const updateReviewsStep = createStep(
       PRODUCT_REVIEW_MODULE
     );
 
+    const updatePayload = originalData.map((review) => ({
+      id: review.id,
+      status: review.status,
+    }));
+
     // Restore original review status
-    await reviewModuleService.updateReviews(originalData);
+    await reviewModuleService.updateReviews(updatePayload);
   }
 );
 

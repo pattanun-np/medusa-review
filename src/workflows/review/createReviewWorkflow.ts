@@ -1,3 +1,4 @@
+import { Modules } from "@medusajs/framework/utils";
 import {
   createStep,
   createWorkflow,
@@ -6,8 +7,6 @@ import {
 } from "@medusajs/framework/workflows-sdk";
 import { PRODUCT_REVIEW_MODULE } from "../../modules/product-review";
 import ProductReviewModuleService from "../../modules/product-review/service";
-import { useQueryGraphStep } from "@medusajs/medusa/core-flows";
-import { Modules } from "@medusajs/framework/utils";
 
 export type CreateReviewInput = {
   title?: string;
@@ -15,9 +14,11 @@ export type CreateReviewInput = {
   rating: number;
   product_id: string;
   customer_id?: string;
-  first_name: string;
-  last_name: string;
   status?: "pending" | "approved" | "rejected";
+  medias: {
+    fileId: string;
+    mimeType: string;
+  }[];
 };
 
 const createReviewStep = createStep(
@@ -35,9 +36,30 @@ const createReviewStep = createStep(
       PRODUCT_REVIEW_MODULE
     );
 
-    const review = await reviewModuleService.createReviews(input);
+    const { medias, ...reviewData } = input;
 
-    return new StepResponse(review, review.id);
+    const review = await reviewModuleService.createReviews(reviewData);
+    try {
+      await reviewModuleService.createReviewMedias(
+        medias.map((media) => ({
+          review_id: review.id,
+          fileId: media.fileId,
+          mimeType: media.mimeType,
+        }))
+      );
+
+      return new StepResponse(review, review.id);
+    } catch (error) {
+      await reviewModuleService.deleteReviewMedias(
+        medias.map((media) => media.fileId)
+      );
+
+      if (review.id) {
+        await reviewModuleService.deleteReviews(review.id);
+      }
+
+      throw error;
+    }
   },
   async (reviewId, { container }) => {
     if (!reviewId) {

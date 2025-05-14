@@ -13,7 +13,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   } = await query.graph({
     entity: "review",
     ...req.queryConfig,
-    fields: ["*", "product.*"],
+    fields: ["*", "product.title", "product.id", "medias.*"],
     filters: {
       status: {
         $in: ["pending", "approved"],
