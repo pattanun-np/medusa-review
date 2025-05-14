@@ -15,9 +15,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     ...req.queryConfig,
     fields: ["*", "product.title", "product.id", "medias.*"],
     filters: {
-      status: {
-        $in: ["pending", "approved"],
-      },
+      status: "approved",
     },
   });
 

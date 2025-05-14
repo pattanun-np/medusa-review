@@ -16,6 +16,7 @@ export default defineMiddlewares({
       matcher: "/store/reviews",
       middlewares: [
         authenticate("customer", ["session", "bearer"]),
+        // @ts-ignore
         upload.array("files"),
         validateAndTransformBody(PostStoreReviewSchema),
       ],
