@@ -1,4 +1,4 @@
-import { Modules } from "@medusajs/framework/utils";
+import { MedusaError, Modules } from "@medusajs/framework/utils";
 import {
   createStep,
   createWorkflow,
@@ -9,9 +9,10 @@ import { PRODUCT_REVIEW_MODULE } from "../../modules/product-review";
 import ProductReviewModuleService from "../../modules/product-review/service";
 
 export type CreateReviewInput = {
+  parent_id?: string;
   title?: string;
   content: string;
-  rating: number;
+  rating?: number;
   product_id: string;
   customer_id?: string;
   status?: "pending" | "approved" | "rejected";
@@ -37,6 +38,34 @@ const createReviewStep = createStep(
     );
 
     const { medias, ...reviewData } = input;
+
+    if (!reviewData.parent_id && !reviewData.rating) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "if it's a review, rating is required or if it's a reply, parent_id is required"
+      );
+    }
+
+    if (reviewData.parent_id) {
+      // auto throw error if parent review not found
+      const parentReview = await reviewModuleService.retrieveReview(
+        reviewData.parent_id
+      );
+
+      if (parentReview.product_id !== reviewData.product_id) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Parent review and review must be for the same product"
+        );
+      }
+
+      if (parentReview.parent_id) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Max depth of replies is 1"
+        );
+      }
+    }
 
     const review = await reviewModuleService.createReviews(reviewData);
     try {

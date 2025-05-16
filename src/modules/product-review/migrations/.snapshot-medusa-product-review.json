@@ -39,7 +39,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "mappedType": "float"
         },
         "status": {
@@ -68,6 +68,15 @@
         },
         "customer_id": {
           "name": "customer_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "parent_id": {
+          "name": "parent_id",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,
@@ -121,6 +130,15 @@
           "expression": "CREATE INDEX IF NOT EXISTS \"IDX_REVIEW_PRODUCT_ID\" ON \"review\" (product_id) WHERE deleted_at IS NULL"
         },
         {
+          "keyName": "IDX_review_parent_id",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX IF NOT EXISTS \"IDX_review_parent_id\" ON \"review\" (parent_id) WHERE deleted_at IS NULL"
+        },
+        {
           "keyName": "IDX_review_deleted_at",
           "columnNames": [],
           "composite": false,
@@ -147,7 +165,21 @@
           "definition": "check ((rating >= 1 AND rating <= 5))"
         }
       ],
-      "foreignKeys": {},
+      "foreignKeys": {
+        "review_parent_id_foreign": {
+          "constraintName": "review_parent_id_foreign",
+          "columnNames": [
+            "parent_id"
+          ],
+          "localTableName": "public.review",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.review",
+          "deleteRule": "set null",
+          "updateRule": "cascade"
+        }
+      },
       "nativeEnums": {}
     },
     {

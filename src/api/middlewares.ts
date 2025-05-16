@@ -2,10 +2,12 @@ import {
   defineMiddlewares,
   authenticate,
   validateAndTransformBody,
+  validateAndTransformQuery,
 } from "@medusajs/framework/http";
 import { PostStoreReviewSchema } from "./store/reviews/route";
 import { PostAdminUpdateReviewsStatusSchema } from "./admin/reviews/status/route";
 import multer from "multer";
+import { GetReviewsSchema } from "./store/reviews/[productId]/route";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -26,6 +28,23 @@ export default defineMiddlewares({
       method: ["POST"],
       middlewares: [
         validateAndTransformBody(PostAdminUpdateReviewsStatusSchema),
+      ],
+    },
+    {
+      method: ["GET"],
+      matcher: "/store/reviews/:productId",
+      middlewares: [
+        validateAndTransformQuery(GetReviewsSchema, {
+          defaults: [
+            "*",
+            "product.title",
+            "product.id",
+            "medias.*",
+            "children.*",
+            "children.medias.*",
+          ],
+          isList: true,
+        }),
       ],
     },
   ],

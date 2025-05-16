@@ -12,6 +12,7 @@ import {
 } from "@medusajs/medusa/core-flows";
 
 export const PostStoreReviewSchema = z.object({
+  parent_id: z.string().optional(),
   title: z.string().optional(),
   content: z.string(),
   rating: z.preprocess((val) => {
@@ -19,7 +20,7 @@ export const PostStoreReviewSchema = z.object({
       return parseInt(val);
     }
     return val;
-  }, z.number().min(1).max(5)),
+  }, z.number().min(1).max(5).optional()),
   product_id: z.string(),
 });
 
@@ -31,13 +32,6 @@ export const POST = async (
 ) => {
   const input = req.body;
   const inputFiles = req.files as Express.Multer.File[];
-
-  if (!inputFiles?.length) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      "No files were uploaded"
-    );
-  }
 
   const { result: uploadedFiles } = await uploadFilesWorkflow(req.scope).run({
     input: {
