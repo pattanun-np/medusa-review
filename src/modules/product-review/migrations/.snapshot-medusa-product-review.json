@@ -75,6 +75,15 @@
           "nullable": true,
           "mappedType": "text"
         },
+        "is_admin": {
+          "name": "is_admin",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "boolean"
+        },
         "parent_id": {
           "name": "parent_id",
           "type": "text",
@@ -195,6 +204,15 @@
         },
         "fileId": {
           "name": "fileId",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "mappedType": "text"
+        },
+        "fileUrl": {
+          "name": "fileUrl",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,

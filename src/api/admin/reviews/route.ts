@@ -1,28 +1,43 @@
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { createFindParams } from "@medusajs/medusa/api/utils/validators";
-
-export const GetAdminReviewsSchema = createFindParams();
+import {
+  AuthenticatedMedusaRequest,
+  MedusaRequest,
+  MedusaResponse,
+} from "@medusajs/framework/http";
+import { getReviewsWorkflow } from "../../../workflows/review/getReviewsWorkflow";
+import { createReviewWorkflow } from "../../../workflows/review/createReviewWorkflow";
+import { PostStoreReviewReq } from "../../store/reviews/route";
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
-  const query = req.scope.resolve("query");
-
-  const {
-    data: reviews,
-    metadata: { count, take, skip } = {
-      count: 0,
-      take: 20,
-      skip: 0,
+  const { result } = await getReviewsWorkflow().run({
+    input: {
+      queryConfig: req.queryConfig,
+      filters: {
+        parent: null,
+      },
     },
-  } = await query.graph({
-    entity: "review",
-    ...req.queryConfig,
-    fields: ["*", "product.id", "product.title"]
   });
 
-  res.json({
-    reviews,
-    count,
-    limit: take,
-    offset: skip,
+  res.json(result);
+};
+
+export const POST = async (
+  req: AuthenticatedMedusaRequest<PostStoreReviewReq>,
+  res: MedusaResponse
+) => {
+  /**
+   * user = Core user (admin)
+   * customer = Medusa customer
+   */
+  const isAdmin = req.auth_context?.actor_type === "user";
+
+  const { result } = await createReviewWorkflow(req.scope).run({
+    input: {
+      ...req.validatedBody,
+      is_admin: isAdmin,
+      status: "approved",
+      medias: [],
+    },
   });
+
+  res.json(result);
 };

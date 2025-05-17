@@ -10,6 +10,7 @@ const Review = model
     status: model.enum(["pending", "approved", "rejected"]).default("pending"),
     product_id: model.text().index("IDX_REVIEW_PRODUCT_ID"),
     customer_id: model.text().nullable(),
+    is_admin: model.boolean().nullable(),
     medias: model.hasMany(() => ReviewMedia, {
       mappedBy: "review",
     }),

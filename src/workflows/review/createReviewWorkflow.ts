@@ -15,10 +15,12 @@ export type CreateReviewInput = {
   rating?: number;
   product_id: string;
   customer_id?: string;
+  is_admin?: boolean;
   status?: "pending" | "approved" | "rejected";
   medias: {
     fileId: string;
     mimeType: string;
+    fileUrl: string;
   }[];
 };
 
@@ -72,6 +74,7 @@ const createReviewStep = createStep(
       await reviewModuleService.createReviewMedias(
         medias.map((media) => ({
           review_id: review.id,
+          fileUrl: media.fileUrl,
           fileId: media.fileId,
           mimeType: media.mimeType,
         }))

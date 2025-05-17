@@ -1,85 +1,31 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk";
-import { HttpTypes } from "@medusajs/framework/types";
 import { ChatBubbleLeftRight } from "@medusajs/icons";
 import {
-  Container,
-  createDataTableColumnHelper,
-  DataTable,
+  Button,
   DataTablePaginationState,
   DataTableRowSelectionState,
-  Heading,
-  StatusBadge,
-  Toaster,
+  Drawer,
+  ProgressAccordion,
+  Textarea,
+  toast,
   useDataTable,
 } from "@medusajs/ui";
 import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { sdk } from "../../lib/sdk";
 
+import { ReviewChild } from "./components/ReviewChild";
+import { Review, reviewColumns, ReviewTable } from "./components/ReviewTable";
 import { useCommands } from "./useCommands";
 
-type Review = {
-  id: string;
-  title?: string;
-  content: string;
-  rating: number;
-  product_id: string;
-  customer_id?: string;
-  status: "pending" | "approved" | "rejected";
-  created_at: Date;
-  updated_at: Date;
-  product?: HttpTypes.AdminProduct;
-  customer?: HttpTypes.AdminCustomer;
+type ReviewsResponse = {
+  reviews: Review[];
+  count: number;
+  limit: number;
+  offset: number;
 };
 
-const columnHelper = createDataTableColumnHelper<Review>();
-
-const columns = [
-  columnHelper.select(),
-
-  columnHelper.accessor("id", {
-    header: "ID",
-  }),
-  columnHelper.accessor("title", {
-    header: "Title",
-  }),
-  columnHelper.accessor("rating", {
-    header: "Rating",
-  }),
-  columnHelper.accessor("content", {
-    header: "Content",
-  }),
-  columnHelper.accessor("status", {
-    header: "Status",
-    cell: ({ row }) => {
-      const color =
-        row.original.status === "approved"
-          ? "green"
-          : row.original.status === "rejected"
-          ? "red"
-          : "grey";
-      return (
-        <StatusBadge color={color}>
-          {row.original.status.charAt(0).toUpperCase() +
-            row.original.status.slice(1)}
-        </StatusBadge>
-      );
-    },
-  }),
-  columnHelper.accessor("product", {
-    header: "Product",
-    cell: ({ row }) => {
-      return (
-        <Link to={`/products/${row.original.product_id}`}>
-          {row.original.product?.title}
-        </Link>
-      );
-    },
-  }),
-];
-
-const limit = 15;
+const limit = 20;
 
 const ReviewsPage = () => {
   const [pagination, setPagination] = useState<DataTablePaginationState>({
@@ -91,32 +37,46 @@ const ReviewsPage = () => {
     {}
   );
 
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const pendingReplies = useMemo(() => {
+    const ids =
+      selectedReview?.children?.filter((child) => child.status === "pending") ??
+      [];
+
+    if (selectedReview?.status === "pending") {
+      ids.push(selectedReview);
+    }
+
+    return ids;
+  }, [selectedReview]);
+
+  const [replyContent, setReplyContent] = useState("");
+
   const offset = useMemo(() => {
     return pagination.pageIndex * limit;
   }, [pagination]);
 
-  const { data, isLoading, refetch } = useQuery<{
-    reviews: Review[];
-    count: number;
-    limit: number;
-    offset: number;
-  }>({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["reviews", offset, limit],
-    queryFn: () =>
-      sdk.client.fetch("/admin/reviews", {
-        query: {
+    queryFn: async () => {
+      const { data } = await axios.get<ReviewsResponse>("/admin/reviews", {
+        params: {
           offset: pagination.pageIndex * pagination.pageSize,
           limit: pagination.pageSize,
           order: "-created_at",
         },
-      }),
+      });
+      return data;
+    },
   });
 
   const commands = useCommands(refetch);
 
   const table = useDataTable({
     commands,
-    columns,
+    columns: reviewColumns,
     data: data?.reviews || [],
     rowCount: data?.count || 0,
     isLoading,
@@ -129,20 +89,141 @@ const ReviewsPage = () => {
       state: rowSelection,
       onRowSelectionChange: setRowSelection,
     },
+    onRowClick: (_, row) => {
+      // @ts-ignore (medusa bug)
+      setSelectedReview(row.original as Review);
+      setIsDrawerOpen(true);
+    },
   });
 
+  const [toBeSaved, setToBeSaved] = useState<Map<string, string>>(new Map());
+
+  function handleAddToBeSaved(id: string, action: string) {
+    setToBeSaved((prev) => {
+      const newSet = new Map(prev);
+      newSet.set(id, action);
+      return newSet;
+    });
+  }
+
+  async function handleSave() {
+    const { approved, rejected } = Array.from(toBeSaved.entries()).reduce(
+      (acc, [id, action]) => {
+        if (action === "approve") {
+          acc.approved.push(id);
+        } else if (action === "reject") {
+          acc.rejected.push(id);
+        }
+        return acc;
+      },
+      { approved: [] as string[], rejected: [] as string[] }
+    );
+
+    await Promise.all([
+      axios.post("/admin/reviews/status", {
+        ids: approved,
+        status: "approved",
+      }),
+      axios.post("/admin/reviews/status", {
+        ids: rejected,
+        status: "rejected",
+      }),
+    ]);
+
+    toast.success("Reviews saved", {
+      description: `${approved.length} reviews approved, ${rejected.length} reviews rejected`,
+    });
+
+    setIsDrawerOpen(false);
+    handleResetSelection();
+    refetch();
+  }
+
+  async function handleReply() {
+    await axios.post("/admin/reviews", {
+      product_id: selectedReview?.product_id,
+      parent_id: selectedReview?.id,
+      title: "Reply from Admin",
+      content: replyContent,
+    });
+
+    toast.success("Reply sent");
+    refetch();
+    setIsDrawerOpen(false);
+    handleResetSelection();
+  }
+
+  function handleDrawerChange(open: boolean): void {
+    setIsDrawerOpen(open);
+
+    if (!open) {
+      handleResetSelection();
+    }
+  }
+
+  function handleResetSelection() {
+    setSelectedReview(null);
+    setToBeSaved(new Map());
+    setReplyContent("");
+  }
+
   return (
-    <Container>
-      <DataTable instance={table}>
-        <DataTable.Toolbar className="flex flex-col items-start justify-between gap-2 md:flex-row md:items-center">
-          <Heading>Reviews</Heading>
-        </DataTable.Toolbar>
-        <DataTable.Table />
-        <DataTable.Pagination />
-        <DataTable.CommandBar selectedLabel={(count) => `${count} selected`} />
-      </DataTable>
-      <Toaster />
-    </Container>
+    <>
+      <ReviewTable title="Reviews" table={table} />
+
+      <Drawer open={isDrawerOpen} onOpenChange={handleDrawerChange}>
+        <Drawer.Content>
+          <Drawer.Header>
+            <Drawer.Title>
+              Review for {selectedReview?.product?.title}
+            </Drawer.Title>
+            <Drawer.Description />
+          </Drawer.Header>
+          <Drawer.Body className="overflow-auto">
+            <ProgressAccordion
+              type="multiple"
+              defaultValue={pendingReplies?.map((child) => child.id) || []}
+            >
+              {selectedReview && (
+                <ReviewChild
+                  key={selectedReview?.id}
+                  review={selectedReview}
+                  onAction={(id, action) => {
+                    handleAddToBeSaved(id, action);
+                  }}
+                />
+              )}
+              {selectedReview?.children?.map((child) => (
+                <ReviewChild
+                  key={child.id}
+                  review={child}
+                  onAction={(id, action) => {
+                    handleAddToBeSaved(id, action);
+                  }}
+                />
+              ))}
+            </ProgressAccordion>
+          </Drawer.Body>
+          <Drawer.Footer className="flex flex-col gap-2">
+            <Button onClick={handleSave} disabled={toBeSaved.size <= 0}>
+              {"Approve and Reject replies"}
+            </Button>
+            <Textarea
+              className="w-[98%]"
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+            />
+            <Button
+              className="w-[98%]"
+              onClick={handleReply}
+              disabled={!replyContent}
+            >
+              {"Reply as Admin"}
+            </Button>
+          </Drawer.Footer>
+        </Drawer.Content>
+      </Drawer>
+    </>
   );
 };
 

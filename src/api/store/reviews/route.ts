@@ -24,7 +24,7 @@ export const PostStoreReviewSchema = z.object({
   product_id: z.string(),
 });
 
-type PostStoreReviewReq = z.infer<typeof PostStoreReviewSchema>;
+export type PostStoreReviewReq = z.infer<typeof PostStoreReviewSchema>;
 
 export const POST = async (
   req: AuthenticatedMedusaRequest<PostStoreReviewReq>,
@@ -46,6 +46,7 @@ export const POST = async (
 
   const medias = uploadedFiles.map((file, index) => ({
     fileId: file.id,
+    fileUrl: file.url,
     mimeType: inputFiles.at(index)?.mimetype ?? "",
   }));
 
