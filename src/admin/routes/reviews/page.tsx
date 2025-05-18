@@ -6,13 +6,15 @@ import {
   DataTableRowSelectionState,
   Drawer,
   ProgressAccordion,
-  Textarea,
   toast,
   useDataTable,
 } from "@medusajs/ui";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import Mentions from "rc-mentions";
 import { useMemo, useState } from "react";
+
+import "./styles/rc-mentions.css";
 
 import { ReviewChild } from "./components/ReviewChild";
 import { Review, reviewColumns, ReviewTable } from "./components/ReviewTable";
@@ -32,13 +34,18 @@ const ReviewsPage = () => {
     pageSize: limit,
     pageIndex: 0,
   });
+  const offset = useMemo(() => {
+    return pagination.pageIndex * limit;
+  }, [pagination]);
 
   const [rowSelection, setRowSelection] = useState<DataTableRowSelectionState>(
     {}
   );
 
-  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  // Replies
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [replyContent, setReplyContent] = useState("");
 
   const pendingReplies = useMemo(() => {
     const ids =
@@ -52,13 +59,11 @@ const ReviewsPage = () => {
     return ids;
   }, [selectedReview]);
 
-  const [replyContent, setReplyContent] = useState("");
-
-  const offset = useMemo(() => {
-    return pagination.pageIndex * limit;
-  }, [pagination]);
-
-  const { data, isLoading, refetch } = useQuery({
+  const {
+    data: reviews,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["reviews", offset, limit],
     queryFn: async () => {
       const { data } = await axios.get<ReviewsResponse>("/admin/reviews", {
@@ -72,13 +77,48 @@ const ReviewsPage = () => {
     },
   });
 
+  const users = useMemo(() => {
+    const _users = reviews?.reviews
+      .filter((review) => review.product_id === selectedReview?.product_id)
+      .map((review) => {
+        const children = review.children || [];
+        return [
+          {
+            id: review.is_admin ? "Admin" : review.customer_id,
+            firstName: review.is_admin
+              ? "Admin"
+              : review.customer?.first_name ?? "Customer",
+          },
+          ...children.map((child) => ({
+            id: child.is_admin ? "Admin" : child.customer_id,
+            firstName: child.is_admin
+              ? "Admin"
+              : child.customer?.first_name ?? "Customer",
+          })),
+        ];
+      })
+      .flat();
+
+    const userMap = new Map<
+      string | undefined,
+      {
+        id: string | undefined;
+        firstName: string | undefined;
+      }
+    >(_users?.map?.((u) => [u.id, u]));
+
+    const users = Array.from(userMap.values());
+
+    return users.filter((u) => u.id);
+  }, [reviews, selectedReview]);
+
   const commands = useCommands(refetch);
 
   const table = useDataTable({
     commands,
     columns: reviewColumns,
-    data: data?.reviews || [],
-    rowCount: data?.count || 0,
+    data: reviews?.reviews || [],
+    rowCount: reviews?.count || 0,
     isLoading,
     pagination: {
       state: pagination,
@@ -177,7 +217,11 @@ const ReviewsPage = () => {
             <Drawer.Title>
               Review for {selectedReview?.product?.title}
             </Drawer.Title>
-            <Drawer.Description />
+            <Drawer.Description className="pt-2">
+              <Button onClick={handleSave} disabled={toBeSaved.size <= 0}>
+                {"Approve and Reject replies"}
+              </Button>
+            </Drawer.Description>
           </Drawer.Header>
           <Drawer.Body className="overflow-auto">
             <ProgressAccordion
@@ -205,13 +249,21 @@ const ReviewsPage = () => {
             </ProgressAccordion>
           </Drawer.Body>
           <Drawer.Footer className="flex flex-col gap-2">
-            <Button onClick={handleSave} disabled={toBeSaved.size <= 0}>
-              {"Approve and Reject replies"}
-            </Button>
-            <Textarea
-              className="w-[98%]"
+            <Mentions
+              rows={3}
+              options={users.map((user) => ({
+                value: user.firstName,
+                label: user.firstName,
+              }))}
               value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
+              onChange={(text) => setReplyContent(text)}
+              notFoundContent={
+                <div className="text-ui-bg-subtle">No users found</div>
+              }
+              className="w-[98%] text-ui-on-color bg-ui-bg-subtle text-base"
+              placement="top"
+              prefix="@"
+              placeholder="Type @ to mention a user"
             />
             <Button
               className="w-[98%]"

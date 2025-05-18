@@ -1,4 +1,4 @@
-import { Button, clx, FocusModal } from "@medusajs/ui";
+import { clx, FocusModal } from "@medusajs/ui";
 import { useState } from "react";
 import { ReviewMedia } from "./ReviewTable";
 
@@ -21,25 +21,17 @@ export const MediaViewer = ({ media, className }: Props) => {
   return (
     <>
       <FocusModal open={open} onOpenChange={setOpen}>
-        <FocusModal.Trigger>
+        <FocusModal.Trigger className="bg-ui-bg-overlay ">
           <div className={clx("w-24 h-24", className)}>
             {mimeType === "image" && (
-              <Button
-                variant="secondary"
-                className="p-0 w-full h-full object-contain"
-                onClick={() => setOpen(true)}
-              >
+              <div className="p-0 w-full h-full object-contain flex items-center justify-center">
                 <img src={media.fileUrl} alt="an image" />
-              </Button>
+              </div>
             )}
             {mimeType === "video" && (
-              <Button
-                variant="secondary"
-                className="p-0 w-full h-full"
-                onClick={() => setOpen(true)}
-              >
-                Watch Video
-              </Button>
+              <div className="p-2 w-full h-full flex items-center justify-center">
+                <>Watch Video</>
+              </div>
             )}
           </div>
         </FocusModal.Trigger>
